@@ -139,7 +139,7 @@ ANTIPATTERNS = [
 
 @tool
 def lookup_concept(concept_name: str) -> str:
-    """Look up a LangChain ecosystem concept (langchain, langgraph, langsmith, deep agents, middleware, tracing). Returns tagline, first release year, package name, minimum Python version, summary, and primary use case."""
+    """Look up a LangChain-ecosystem concept. Scope is strictly limited to LangChain, LangGraph, LangSmith, Deep Agents, middleware, and tracing — off-domain queries (Django, generic Python utilities, transformer/ML theory, non-LangChain vector DBs, CI/CD, business strategy, foundation-model comparisons) are not supported and should be declined by the agent rather than passed to this tool. Returns tagline, first release year, package name, minimum Python version, summary, and primary use case."""
     key = concept_name.lower().strip()
     for db_key, data in CONCEPTS_DB.items():
         if key in db_key or db_key in key:
@@ -157,7 +157,7 @@ def lookup_concept(concept_name: str) -> str:
 
 @tool
 def get_setup_guide(topic: str) -> str:
-    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
+    """Get a setup or how-to guide for a LangChain-ecosystem topic. Covers installation, environment, deployment, and evaluation for LangChain / LangGraph / LangSmith / Deep Agents only. Do not call for off-domain setup (Django, generic Python projects, CI/CD pipelines, AWS infra, non-LangChain stacks) — the agent should decline those rather than route them here."""
     key = topic.lower().strip()
     for db_key, content in SETUP_GUIDES_DB.items():
         if key in db_key or db_key in key:
@@ -168,7 +168,7 @@ def get_setup_guide(topic: str) -> str:
 
 @tool
 def get_security_advice(query: str) -> str:
-    """Get security and best-practice advice for LangChain/LangGraph/LangSmith projects, including recommended patterns and antipatterns to avoid."""
+    """Get security and best-practice advice for LangChain / LangGraph / LangSmith / Deep Agents projects, including recommended patterns and antipatterns to avoid. Scope is restricted to the LangChain ecosystem — generic application security, vendor-neutral cloud hardening, or non-LangChain framework advice is out of scope and should be declined by the agent."""
     safe_list = "\n".join(f"  ✓ {item}" for item in SAFE_PATTERNS)
     antipatterns_list = "\n".join(f"  ✗ {item}" for item in ANTIPATTERNS)
     return f"""**LangChain Best Practices**
