@@ -4,6 +4,8 @@ from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableConfig
+from langsmith import tracing_context
+from langsmith.wrappers import wrap_anthropic
 
 from deepagents.middleware.filesystem import FilesystemMiddleware
 from deepagents.backends.context_hub import ContextHubBackend
@@ -29,7 +31,7 @@ def _model_id() -> str:
 
 def build_agent():
     return create_agent(
-        model=ChatAnthropic(model=_model_id(), max_tokens=300),
+        model=wrap_anthropic(ChatAnthropic(model=_model_id(), max_tokens=4096)),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         # FilesystemMiddleware exposes ls/read_file/etc. backed by Context Hub.
@@ -38,7 +40,14 @@ def build_agent():
 
 
 def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "model": _model_id(),
+        "ls_provider": "anthropic",
+        "ls_model_name": _model_id(),
+        "environment": os.getenv("CHAT_LC_LITE_ENV", "production"),
+    }
     if thread_id:
         metadata["thread_id"] = thread_id
     return RunnableConfig(
@@ -54,7 +63,12 @@ def _user_msg(question: str) -> dict:
 
 def invoke_agent(question: str, thread_id: str | None = None) -> dict:
     """Run the agent once. Returns {output, tools_called, messages}."""
-    result = build_agent().invoke(_user_msg(question), _config(thread_id))
+    cfg = _config(thread_id)
+    # tracing_context attaches metadata/tags directly to the active root run;
+    # RunnableConfig.metadata alone doesn't land on the root through this
+    # agent middleware chain.
+    with tracing_context(metadata=cfg["metadata"], tags=cfg["tags"]):
+        result = build_agent().invoke(_user_msg(question), cfg)
     output = next(
         (m.content for m in reversed(result["messages"])
          if isinstance(getattr(m, "content", None), str) and m.content),
@@ -66,8 +80,10 @@ def invoke_agent(question: str, thread_id: str | None = None) -> dict:
 
 def stream_agent(question: str, thread_id: str | None = None):
     """Stream the agent's response text as it's generated."""
-    for chunk, _meta in build_agent().stream(
-        _user_msg(question), _config(thread_id), stream_mode="messages"
-    ):
-        if isinstance(chunk, AIMessageChunk):
-            yield from iter_text(chunk)
+    cfg = _config(thread_id)
+    with tracing_context(metadata=cfg["metadata"], tags=cfg["tags"]):
+        for chunk, _meta in build_agent().stream(
+            _user_msg(question), cfg, stream_mode="messages"
+        ):
+            if isinstance(chunk, AIMessageChunk):
+                yield from iter_text(chunk)
