@@ -1,0 +1,21 @@
+scripts/cleanup.py
+  s_d7cb9fd71a4550::t_24687f76d268b9 175,178-182
+  s_d7cb9fd71a4550::t_2f7050251c6d86 226-233
+  s_d7cb9fd71a4550::t_ad7a0030893193 248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.11",
+  "base_commit_sha": "7f43d898b7649cfa5ac23a34d1b1e7f1d69c1a58",
+  "prompts": {},
+  "sessions": {
+    "s_d7cb9fd71a4550": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e5f4dbf-c859-42f8-9335-785cdd348406",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "mwalker5000 <1175183+mwalker5000@users.noreply.github.com>"
+    }
+  }
+}
