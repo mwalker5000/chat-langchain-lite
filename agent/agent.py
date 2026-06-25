@@ -53,7 +53,15 @@ def build_agent():
 
 
 def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "model": _model_id(),
+        "ls_provider": "anthropic",
+        "ls_model_name": _model_id(),
+        "ls_message_format": "anthropic",
+        "environment": "demo",
+    }
     if thread_id:
         metadata["thread_id"] = thread_id
     return RunnableConfig(
