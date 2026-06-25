@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from evals.dataset import DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME, DEMO_PRESENTER
+from context import CONTEXT_HUB_REPO
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
 
 
@@ -162,11 +163,13 @@ def delete_engine_evaluators(api_key: str) -> None:
 # ── Optional: delete the entire LangSmith project ─────────────────────────────
 
 def delete_project() -> None:
-    """Delete project + datasets + every chat-lc-lite-* Context Hub repo.
+    """Delete this presenter's project + datasets + Context Hub repo.
 
     Removes all traces, online evaluators on the project, Engine issue state,
-    both demo datasets, and any Context Hub agent / skill whose handle starts
-    with `chat-lc-lite-` (sweep catches leftovers from prior renames).
+    both demo datasets, and the presenter's Context Hub agent repo.
+
+    Everything is scoped to the current DEMO_PRESENTER so running `--full` in
+    a shared LangSmith workspace never touches another presenter's resources.
     """
     from langsmith import Client
 
@@ -183,18 +186,24 @@ def delete_project() -> None:
         else:
             print(f"  Project delete failed: {e}")
 
-    # 2. Datasets — delete entirely (not reset). Sweep current demo names
-    # plus any stale chat-lc-lite-* datasets from prior renames AND the
-    # auto-generated `Evaluator: chat-lc-lite:...` pseudo-datasets LangSmith
-    # creates when online evaluators run (they linger after the evaluator
-    # itself is deleted).
-    print(f"\n[*] Deleting demo datasets...")
+    # 2. Datasets — delete entirely (not reset), but ONLY this presenter's.
+    # DATASET_NAME / TOOL_ADHERENCE_DATASET_NAME already carry the
+    # `-{DEMO_PRESENTER}` suffix; we also match any renamed leftovers that
+    # keep the presenter-scoped prefix, plus the auto-generated
+    # `Evaluator: ...` pseudo-datasets that name this presenter. A bare
+    # `chat-lc-lite-` prefix is intentionally NOT used — it would match
+    # other presenters' datasets in a shared workspace.
+    print(f"\n[*] Deleting demo datasets (presenter '{DEMO_PRESENTER}')...")
     known = {DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME}
+    scoped_prefixes = (
+        f"chat-lc-lite-scope-{DEMO_PRESENTER}",
+        f"chat-lc-lite-tools-{DEMO_PRESENTER}",
+    )
     for d in ls_client.list_datasets():
         if (
             d.name in known
-            or d.name.startswith("chat-lc-lite-")
-            or d.name.startswith("Evaluator: chat-lc-lite")
+            or any(d.name.startswith(p) for p in scoped_prefixes)
+            or (d.name.startswith("Evaluator: ") and f"-{DEMO_PRESENTER}" in d.name)
         ):
             try:
                 ls_client.delete_dataset(dataset_id=d.id)
@@ -202,14 +211,23 @@ def delete_project() -> None:
             except Exception as e:
                 print(f"  Dataset delete failed for '{d.name}': {e}")
 
-    # 3. Context Hub — sweep every chat-lc-lite-* agent and skill (catches
-    # the current ones plus any leftovers from prior renames).
-    print(f"\n[*] Deleting Context Hub repos (chat-lc-lite-* sweep)...")
+    # 3. Context Hub — delete only THIS presenter's repos. The agent repo is
+    # `chat-lc-lite-agent-{DEMO_PRESENTER}` (context.CONTEXT_HUB_REPO); we
+    # also match any renamed `chat-lc-lite-*-{DEMO_PRESENTER}` leftovers.
+    #
+    # The generic demo skills (release-notes-skill, support-ticket-triage-
+    # skill, pr-review-summary-skill) are seeded with un-scoped handles in
+    # utils/context_hub.py, so they cannot be attributed to a presenter.
+    # They are deliberately NOT deleted here — a hardcoded handle match would
+    # remove another presenter's identically-named repo in a shared
+    # workspace. (Scope those handles per-presenter to re-enable cleanup.)
+    print(f"\n[*] Deleting Context Hub repos (presenter '{DEMO_PRESENTER}')...")
     api_key = os.environ.get("LANGSMITH_API_KEY", "")
     workspace_id = os.environ.get("LANGSMITH_WORKSPACE_ID", "")
     H = {"x-api-key": api_key}
     if workspace_id:
         H["X-Tenant-Id"] = workspace_id
+    presenter_suffix = f"-{DEMO_PRESENTER}"
     for repo_type, delete_fn in (("agent", ls_client.delete_agent), ("skill", ls_client.delete_skill)):
         r = requests.get(
             f"https://api.smith.langchain.com/v1/platform/hub/repos?repo_type={repo_type}",
@@ -219,7 +237,9 @@ def delete_project() -> None:
             continue
         for repo in r.json().get("repos", []):
             handle = repo.get("repo_handle", "")
-            if handle.startswith("chat-lc-lite-") or handle in {"release-notes-skill", "support-ticket-triage-skill", "pr-review-summary-skill"}:
+            if handle == CONTEXT_HUB_REPO or (
+                handle.startswith("chat-lc-lite-") and handle.endswith(presenter_suffix)
+            ):
                 try:
                     delete_fn(handle)
                     print(f"  Deleted {repo_type} '{handle}'.")
