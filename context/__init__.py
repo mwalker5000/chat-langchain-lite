@@ -16,18 +16,17 @@ from evals.dataset import DEMO_PRESENTER
 CONTEXT_HUB_REPO = f"chat-lc-lite-agent-{DEMO_PRESENTER}"
 
 
-def get_prompt() -> str:
-    """Return the agent's system prompt, pulled from LangSmith Context Hub.
-
-    Returns an empty string if the hub is unreachable or the repo hasn't
-    been seeded yet — run `python -m scripts.setup` to initialize it.
-    """
+def get_prompt() -> tuple[str, str]:
+    """Return (system prompt, AGENTS.md commit hash) from LangSmith Context Hub."""
     # The AGENTS.md served from Context Hub is initially populated from THIS
     # repo — see utils/context_hub.py (`_SEED_AGENTS_MD`), pushed to the hub by
     # `scripts/setup.py`. So the agent's instructions have a repo-side source of
     # truth: a fix to the prompt can be applied BOTH as a PR to that seed file
     # AND by updating the live Context Hub repo (`CONTEXT_HUB_REPO`).
+    # Both values are empty if the hub is unreachable or the repo hasn't been
+    # seeded yet — run `python -m scripts.setup` to initialize it.
     try:
-        return Client().pull_agent(CONTEXT_HUB_REPO).files["AGENTS.md"].content
+        agent = Client().pull_agent(CONTEXT_HUB_REPO)
+        return agent.files["AGENTS.md"].content, agent.commit_hash
     except Exception:
-        return ""
+        return "", ""

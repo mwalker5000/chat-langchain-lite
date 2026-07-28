@@ -1,4 +1,5 @@
 import os
+import uuid
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
@@ -17,7 +18,7 @@ from utils.streaming import iter_text
 # Seed source: utils/context_hub.py (`_SEED_AGENTS_MD`), pushed to Context Hub by
 # `scripts/setup.py` (`push_agents_md()`). A prompt fix can be applied BOTH as a
 # PR to that seed AND to the live Context Hub.
-SYSTEM_PROMPT = get_prompt()
+SYSTEM_PROMPT, PROMPT_COMMIT = get_prompt()
 
 # Override with CHAT_LANGCHAIN_LITE_MODEL env var — used by setup.py to seed
 # baseline experiments against a more expensive model (Sonnet) for the
@@ -53,9 +54,21 @@ def build_agent():
 
 
 def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
-    if thread_id:
-        metadata["thread_id"] = thread_id
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "model": _model_id(),
+        # Separates demo/test/prod traffic in dashboards and run-rule scoping.
+        "environment": os.getenv("CHAT_LANGCHAIN_LITE_ENV") or "production",
+        # Always set so every turn is groupable in the Threads view. Callers
+        # should mint one id per conversation and reuse it only for that
+        # conversation's turns.
+        "thread_id": thread_id or str(uuid.uuid4()),
+        # revision_id tracks the CODE; these track the AGENTS.md that actually
+        # produced the behavior, so prompt versions can be compared directly.
+        "prompt_commit": PROMPT_COMMIT,
+        "prompt_repo": CONTEXT_HUB_REPO,
+    }
     return RunnableConfig(
         run_name="chat-lc-lite-demo",
         metadata=metadata,
