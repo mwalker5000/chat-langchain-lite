@@ -112,6 +112,32 @@ self-hosted LangSmith docs for a worked example.""",
 
 For online evaluation, register a run rule in the LangSmith Evaluators UI.
 Every new trace in the project will be scored automatically.""",
+
+    "tracing": """Trace every LLM, tool, and chain call to LangSmith:
+
+1. Install the SDK:
+```bash
+pip install -U langsmith
+```
+
+2. Set the environment variables:
+```bash
+LANGSMITH_TRACING=true                # required — enables tracing
+LANGSMITH_API_KEY=lsv2_...
+LANGSMITH_PROJECT=my-project          # auto-created on first trace
+```
+
+Once those are set, every LangChain / LangGraph run is traced automatically —
+no code changes needed.
+
+3. For arbitrary Python functions, use the @traceable decorator:
+```python
+from langsmith import traceable
+
+@traceable
+def my_step(text: str) -> str:
+    ...
+```""",
 }
 
 # Best practices the agent can recommend without caveat.
@@ -152,18 +178,26 @@ def lookup_concept(concept_name: str) -> str:
             lines.append(data["summary"])
             return "\n".join(lines)
     available = ", ".join(k.title() for k in CONCEPTS_DB.keys())
-    return f"Concept '{concept_name}' not found. Available concepts: {available}"
+    return (
+        f"ERROR: no curated entry exists for concept '{concept_name}'. "
+        f"Supported concepts: {available}. Do NOT answer from memory — tell the "
+        f"user this concept has no curated entry, or retry with a supported one."
+    )
 
 
 @tool
 def get_setup_guide(topic: str) -> str:
-    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
+    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation, tracing."""
     key = topic.lower().strip()
     for db_key, content in SETUP_GUIDES_DB.items():
         if key in db_key or db_key in key:
             return f"**{db_key.title()} guide:**\n\n{content}"
     available = ", ".join(SETUP_GUIDES_DB.keys())
-    return f"Topic '{topic}' not found. Available topics: {available}"
+    return (
+        f"ERROR: no setup guide exists for topic '{topic}'. Supported topics: "
+        f"{available}. Do NOT answer from memory — tell the user this topic has "
+        f"no curated guide, or call lookup_concept('{topic}') if it is a concept."
+    )
 
 
 @tool
