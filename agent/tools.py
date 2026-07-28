@@ -1,3 +1,5 @@
+from typing import Literal
+
 from langchain_core.tools import tool
 
 # Canned documentation snippets for the most-asked LangChain ecosystem concepts.
@@ -138,30 +140,36 @@ ANTIPATTERNS = [
 
 
 @tool
-def lookup_concept(concept_name: str) -> str:
-    """Look up a LangChain ecosystem concept (langchain, langgraph, langsmith, deep agents, middleware, tracing). Returns tagline, first release year, package name, minimum Python version, summary, and primary use case."""
+def lookup_concept(
+    concept_name: Literal[
+        "langchain", "langgraph", "langsmith", "deep agents", "middleware", "tracing"
+    ],
+) -> str:
+    """Look up one LangChain ecosystem concept by exact name — concept_name must be exactly one of langchain, langgraph, langsmith, deep agents, middleware, tracing, never a sentence or question — and return its tagline, first release year, package name, minimum Python version, summary, and primary use case."""
     key = concept_name.lower().strip()
-    for db_key, data in CONCEPTS_DB.items():
-        if key in db_key or db_key in key:
-            lines = [f"**{db_key.title()}** — {data['tagline']}"]
-            lines.append(f"- First released: {data['first_released']}")
-            lines.append(f"- Package: `{data['package']}`")
-            lines.append(f"- Minimum Python: {data['min_python']}")
-            lines.append(f"- Primary use case: {data['primary_use_case']}")
-            lines.append("")
-            lines.append(data["summary"])
-            return "\n".join(lines)
+    data = CONCEPTS_DB.get(key)
+    if data is not None:
+        lines = [f"**{key.title()}** — {data['tagline']}"]
+        lines.append(f"- First released: {data['first_released']}")
+        lines.append(f"- Package: `{data['package']}`")
+        lines.append(f"- Minimum Python: {data['min_python']}")
+        lines.append(f"- Primary use case: {data['primary_use_case']}")
+        lines.append("")
+        lines.append(data["summary"])
+        return "\n".join(lines)
     available = ", ".join(k.title() for k in CONCEPTS_DB.keys())
     return f"Concept '{concept_name}' not found. Available concepts: {available}"
 
 
 @tool
-def get_setup_guide(topic: str) -> str:
-    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
+def get_setup_guide(
+    topic: Literal["installation", "environment", "deployment", "evaluation"],
+) -> str:
+    """Get a setup or how-to guide for one LangChain ecosystem topic — topic must be exactly one of installation, environment, deployment, evaluation, never a sentence, a user question, or a topic outside that list."""
     key = topic.lower().strip()
-    for db_key, content in SETUP_GUIDES_DB.items():
-        if key in db_key or db_key in key:
-            return f"**{db_key.title()} guide:**\n\n{content}"
+    content = SETUP_GUIDES_DB.get(key)
+    if content is not None:
+        return f"**{key.title()} guide:**\n\n{content}"
     available = ", ".join(SETUP_GUIDES_DB.keys())
     return f"Topic '{topic}' not found. Available topics: {available}"
 
