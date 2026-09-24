@@ -1,3 +1,5 @@
+import re
+
 from langchain_core.tools import tool
 
 # Canned documentation snippets for the most-asked LangChain ecosystem concepts.
@@ -16,7 +18,7 @@ CONCEPTS_DB = {
         "tagline": "Build stateful, multi-actor agents as graphs.",
         "first_released": "2024",
         "package": "langgraph",
-        "min_python": "3.7+",
+        "min_python": "3.10+",
         "summary": "LangGraph models agents as graphs: nodes are functions, edges define control flow, and a typed state object is passed between them. Built-in persistence (checkpointers), interrupts, and streaming.",
         "primary_use_case": "Long-running, multi-step agents and human-in-the-loop workflows.",
     },
@@ -113,6 +115,30 @@ self-hosted LangSmith docs for a worked example.""",
 For online evaluation, register a run rule in the LangSmith Evaluators UI.
 Every new trace in the project will be scored automatically.""",
 }
+
+
+def _check_min_python_agrees_with_install_guide() -> None:
+    """Fail at import if CONCEPTS_DB min_python drifts from the installation guide."""
+    guide = SETUP_GUIDES_DB["installation"]
+    stated = re.findall(r"(\d+\.\d+) for ([a-z/]+)", guide)
+    if not stated:
+        raise ValueError(
+            "installation guide no longer states minimum Python versions; "
+            "update _check_min_python_agrees_with_install_guide"
+        )
+    for version, packages in stated:
+        for package in packages.split("/"):
+            concept = CONCEPTS_DB.get(package)
+            if concept is None:
+                continue
+            if concept["min_python"] != f"{version}+":
+                raise ValueError(
+                    f"min_python mismatch for '{package}': CONCEPTS_DB says "
+                    f"{concept['min_python']} but the installation guide says {version}+"
+                )
+
+
+_check_min_python_agrees_with_install_guide()
 
 # Best practices the agent can recommend without caveat.
 SAFE_PATTERNS = [
