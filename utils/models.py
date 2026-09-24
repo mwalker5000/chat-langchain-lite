@@ -12,9 +12,11 @@ from langchain.chat_models import init_chat_model
 # --- OpenAI via the LangSmith LLM Gateway ---
 # Routes every model call through the LangSmith Gateway so that workspace
 # policies (PII / secrets / allow-lists / cost caps) are enforced.
-# MODEL_CONFIG is the single source the frontend's Gateway pane reads.
+# MODEL_CONFIG is the single source the frontend's Gateway pane, the gateway
+# call below and the root-run tracing metadata all read, so the model id is
+# resolved here once from CHAT_LANGCHAIN_LITE_MODEL.
 MODEL_CONFIG = {
-    "model": "claude-sonnet-4-6",
+    "model": os.getenv("CHAT_LANGCHAIN_LITE_MODEL") or "claude-haiku-4-5-20251001",
     "provider": "anthropic",
     "base_url": "https://gateway.smith.langchain.com/anthropic",
 }
