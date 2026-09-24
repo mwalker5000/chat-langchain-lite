@@ -2,11 +2,9 @@ import os
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
+from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 from langchain_core.messages import AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableConfig
-
-from deepagents.middleware.filesystem import FilesystemMiddleware
-from deepagents.backends.context_hub import ContextHubBackend
 
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
@@ -30,17 +28,6 @@ def _model_id() -> str:
     return os.getenv("CHAT_LANGCHAIN_LITE_MODEL") or _DEFAULT_MODEL
 
 
-# The Context Hub-backed filesystem holds the agent's OWN context (AGENTS.md,
-# playbooks) — it is a read-only reference, NOT a user-delivery channel.
-_READONLY_FS_TOOLS = {"ls", "read_file", "glob", "grep"}
-
-
-def _readonly_context_hub_fs() -> FilesystemMiddleware:
-    fs = FilesystemMiddleware(backend=ContextHubBackend(CONTEXT_HUB_REPO))
-    fs.tools = [t for t in fs.tools if t.name in _READONLY_FS_TOOLS]
-    return fs
-
-
 def build_agent():
     return create_agent(
         # temperature=0 for deterministic, reproducible demo behavior — the
@@ -49,7 +36,9 @@ def build_agent():
         model=model,
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
-        middleware=[_readonly_context_hub_fs()],
+        # The system prompt and tool schemas are identical on every request, so
+        # cache the static prefix instead of paying full input rate each call.
+        middleware=[AnthropicPromptCachingMiddleware()],
     )
 
 
