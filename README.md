@@ -157,6 +157,7 @@ LangGraph SDK on loopback — it never imports the graph directly.
 |--------|-------------|
 | `python -m scripts.setup` | One-shot setup: creates dataset and creates 6 online evaluators |
 | `python -m scripts.generate_traces` | Runs 11 single-turn queries + 1 multi-turn thread through the buggy agent |
+| `python -m scripts.check_online_evals` | Checks that the 6 online evaluators are scoring traces (not silently erroring) |
 | `python -m scripts.run_evals` | Runs offline evals against the dataset and prints scores |
 | `python -m scripts.run_evals --skip-dataset` | Re-runs evals against existing dataset (used in CI) |
 | `python -m scripts.run_evals --threshold 0.7` | Exits with code 1 if scores < 0.7 (used in CI) |
@@ -175,7 +176,66 @@ Two LLM-as-judge evaluators run in CI (offline). Claude Haiku scores each 0 or 1
 
 Online evaluators run automatically on every trace as it arrives in LangSmith. This gives Engine a continuous signal on live traffic, not just offline evals on a fixed dataset.
 
-Six online evaluators are registered by `python -m scripts.setup`: `security_advice`, `scope_adherence`, `tool_usage`, `response_completeness`, `professional_tone`, and `factual_accuracy`.
+Six online evaluators are registered by `python -m scripts.setup`:
+
+| Feedback key | What it scores |
+|--------------|----------------|
+| `security_advice` | Only `docs.langchain.com` links, no insecure practices |
+| `scope_adherence` | Agent stays on LangChain-ecosystem topics |
+| `tool_usage` | Answer is grounded in tool output, not memory |
+| `response_completeness` | Answer is complete and not truncated |
+| `professional_tone` | No casual greetings, sign-offs, or emojis |
+| `factual_accuracy` | LangChain / LangGraph / LangSmith facts are correct |
+
+### An errored run rule is not a score of 0
+
+When a run rule fails — the judge model returns 403, its credentials are missing,
+or a `variable_mapping` key doesn't resolve against this project's run shape —
+LangSmith still writes an `auto_eval` feedback row for the trace, but with:
+
+```
+n: 0, errors: 1, avg: 0, values: {}
+```
+
+`avg: 0` there means **no score was produced**, not that the agent scored 0. A
+scored row has `n >= 1` and a populated `values`. Human `user_score` feedback
+from the chat UI ingests through a different path, so it keeps arriving normally
+even while every automated key is dark — `user_score` landing is not evidence
+that online evals are healthy.
+
+### Verifying the evaluators are scoring
+
+Check all six keys at once:
+
+```bash
+python -m scripts.check_online_evals            # last 48h
+python -m scripts.check_online_evals --hours 6
+```
+
+It exits non-zero when a key has error rows but zero scored rows, so a broken
+rule surfaces as a failure instead of being read as a bad score. To check one
+key directly:
+
+```bash
+langsmith trace list --project-id <id> --last-n-minutes 2880 \
+  --filter 'and(eq(feedback_key,"factual_accuracy"),gte(feedback_score,0))' \
+  --format json
+```
+
+An empty result while traces exist in that window means the rule is erroring.
+
+### Repairing a broken rule
+
+Each errored feedback row carries its `rule_id` in the `sources` metadata. Open
+that rule in LangSmith → Evaluators, read the evaluator run error, confirm the
+judge model's credentials and access (a `PermissionDeniedError` 403 from
+Anthropic is the most common cause), and confirm the rule's `variable_mapping`
+keys resolve against this project's run shape — the final answer lives in the
+root run's output message and tool names live in tool child spans. Then re-run
+the check above and confirm scored rows come back.
+
+> `evals/evaluators.py` holds the separate **offline** `assertion_evaluator` used
+> by `scripts.run_evals` in CI; it is unrelated to these run rules.
 
 ## CI/CD
 
@@ -229,6 +289,7 @@ scripts/
 ├── setup.py          # one-shot setup: dataset + online evaluators + Context Hub
 ├── generate_traces.py    # populate LangSmith with extra traces and threads
 ├── run_evals.py          # offline evals + CI threshold check
+├── check_online_evals.py # flags online evaluators that error instead of scoring
 └── cleanup.py            # resets demo to clean state after presentation
 
 .github/workflows/
