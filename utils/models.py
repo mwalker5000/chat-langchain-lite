@@ -18,6 +18,11 @@ MODEL_CONFIG = {
     "provider": "anthropic",
     "base_url": "https://gateway.smith.langchain.com/anthropic",
 }
+# The prefix of every request — the AGENTS.md system prompt (pulled once at
+# import) and the tool schemas (fixed at agent construction) — is identical for
+# the process lifetime, so it is safe to cache. Anthropic's top-level
+# `cache_control` puts the breakpoint on the last cacheable block, so that whole
+# prefix is written once and read back at cache-read rates on later calls.
 model = init_chat_model(
     model=MODEL_CONFIG["model"],
     model_provider=MODEL_CONFIG["provider"],
@@ -25,6 +30,7 @@ model = init_chat_model(
     api_key=os.environ["LANGSMITH_API_KEY_GATEWAY"],
     max_tokens=300,
     temperature=0,
+    model_kwargs={"cache_control": {"type": "ephemeral"}},
 )
 
 # --- Anthropic ---
