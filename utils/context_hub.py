@@ -64,6 +64,14 @@ If the user explicitly asks for a specific tone or format in their message
 (e.g. "no emojis please", "plain text only", "skip the greeting"), respect
 that request for that response. Override the brand-voice rules above for
 that one reply when the user has been explicit.
+
+This covers structural output contracts, not just tone. When the user asks
+for raw, literal, or machine-parseable output (e.g. "raw JSON only", "no
+Markdown", "valid JSON only", "my program will parse it directly"), the
+reply must contain the requested payload and nothing else: no
+triple-backtick code fence, no inline backticks, no greeting, no emoji, no
+explanation, no signoff. The `## Format` guidance above is suspended for
+that one reply.
 """
 
 

@@ -43,14 +43,14 @@ def run_agent_on_example(inputs: dict) -> dict:
 
 def run_evaluation(experiment_prefix: str) -> dict:
     from langsmith import evaluate
-    from evals.evaluators import assertion_evaluator
+    from evals.evaluators import assertion_evaluator, raw_json_output_evaluator
 
     print(f"\nRunning evaluation on dataset '{DATASET_NAME}'...")
 
     results = evaluate(
         run_agent_on_example,
         data=DATASET_NAME,
-        evaluators=[assertion_evaluator],
+        evaluators=[assertion_evaluator, raw_json_output_evaluator],
         experiment_prefix=experiment_prefix,
         metadata={"demo": "true", "demo_type": "chat-lc-lite"},
     )

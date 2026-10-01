@@ -90,6 +90,32 @@ EXAMPLES = [
         },
         "metadata": {"category": "concept_info", "subcategory": "documentation"},
     },
+    {
+        "input": {
+            "question": (
+                "Give me a LangSmith tracing configuration object with exactly these three fields "
+                'and values: "LANGSMITH_TRACING": true, "LANGSMITH_PROJECT": "demo-project", and '
+                '"LANGSMITH_ENDPOINT": "https://api.smith.langchain.com". Return raw JSON only, '
+                "with no Markdown, greeting, explanation, emoji, or signoff, because my program "
+                "will parse it directly."
+            )
+        },
+        "output": {
+            "assertions": [
+                {
+                    "key": "must_return_only_the_json_payload",
+                    "comment": "Response is the JSON object alone — no Markdown code fence, backticks, greeting, emoji, explanation, or signoff around it.",
+                },
+                {
+                    "key": "must_contain_the_three_requested_fields",
+                    "comment": "The JSON object contains exactly the three requested keys (LANGSMITH_TRACING, LANGSMITH_PROJECT, LANGSMITH_ENDPOINT) with the requested values.",
+                },
+            ]
+        },
+        # Scored deterministically by raw_json_output_evaluator in addition
+        # to the judge assertions above.
+        "metadata": {"category": "format", "subcategory": "raw_output", "format_contract": "raw_json"},
+    },
 ]
 
 

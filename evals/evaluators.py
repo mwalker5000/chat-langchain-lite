@@ -4,7 +4,13 @@ A single `assertion_evaluator` consumes each example's `assertions` list
 and produces one feedback row per assertion via LLM-as-judge. This matches
 the format Engine emits when proposing generated examples to a dataset,
 so anything Engine adds is scored the same way.
+
+`raw_json_output_evaluator` is the one non-judge evaluator: examples with
+`format_contract: raw_json` metadata are checked by actually parsing the
+response.
 """
+
+import json
 
 from anthropic import Anthropic
 
@@ -93,3 +99,33 @@ def assertion_evaluator(run, example) -> dict:
         "score": passed / total,
         "comment": f"{passed}/{total} passed — {breakdown}",
     }
+
+
+def raw_json_output_evaluator(run, example) -> dict:
+    """Score examples flagged `format_contract: raw_json`: is the output bare, parseable JSON?
+
+    Deterministic (no judge) because the contract is mechanical: callers
+    pipe the reply straight into a JSON parser, so the body must parse with
+    no stripping and carry no Markdown fence. Returns score None — which
+    run_evals skips when averaging — for every other example.
+    """
+    contract = (example.metadata or {}).get("format_contract")
+    if contract != "raw_json":
+        return {"key": "raw_json_output", "score": None, "comment": "(not applicable)"}
+
+    output = (run.outputs or {}).get("output") or ""
+    failures = []
+    if "```" in output:
+        failures.append("contains a triple-backtick fence")
+    if not output.startswith("{"):
+        failures.append("does not start with '{'")
+    if not output.endswith("}"):
+        failures.append("does not end with '}'")
+    try:
+        json.loads(output)
+    except (ValueError, TypeError) as exc:
+        failures.append(f"json.loads failed: {exc}")
+
+    if failures:
+        return {"key": "raw_json_output", "score": 0.0, "comment": "; ".join(failures)}
+    return {"key": "raw_json_output", "score": 1.0, "comment": "bare JSON, parsed without stripping"}
