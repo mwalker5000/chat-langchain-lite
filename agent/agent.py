@@ -12,6 +12,7 @@ from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
 from utils.streaming import iter_text
 from utils.models import model
+from utils.redaction import SecretRedactionMiddleware, redact
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
 # Context Hub at module import.
@@ -49,7 +50,7 @@ def build_agent():
         model=model,
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
-        middleware=[_readonly_context_hub_fs()],
+        middleware=[SecretRedactionMiddleware(), _readonly_context_hub_fs()],
     )
 
 
@@ -65,7 +66,9 @@ def _config(thread_id: str | None = None) -> RunnableConfig:
 
 
 def _user_msg(question: str) -> dict:
-    return {"messages": [{"role": "user", "content": question}]}
+    # Redacted here as well as in the middleware: the invocation payload is what
+    # gets recorded as the trace's root inputs, which middleware cannot rewrite.
+    return {"messages": [{"role": "user", "content": redact(question)}]}
 
 
 def invoke_agent(question: str, thread_id: str | None = None) -> dict:

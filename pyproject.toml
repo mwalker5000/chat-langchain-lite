@@ -19,6 +19,11 @@ dependencies = [
     "langchain-openai>=1.3.3",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
 [build-system]
 requires = ["setuptools>=83.0.0"]
 build-backend = "setuptools.build_meta"
