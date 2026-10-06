@@ -11,7 +11,9 @@ from langchain.chat_models import init_chat_model
 
 # --- OpenAI via the LangSmith LLM Gateway ---
 # Routes every model call through the LangSmith Gateway so that workspace
-# policies (PII / secrets / allow-lists / cost caps) are enforced.
+# policies (allow-lists / cost caps) are enforced. No PII or secret policy is
+# configured on this workspace — that redaction happens in-process on the way
+# in, see utils/redaction.py.
 # MODEL_CONFIG is the single source the frontend's Gateway pane reads.
 MODEL_CONFIG = {
     "model": "claude-sonnet-4-6",

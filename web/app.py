@@ -62,6 +62,7 @@ from langsmith.schemas import FeedbackConfig
 from starlette.responses import PlainTextResponse, RedirectResponse
 
 from context import CONTEXT_HUB_REPO
+from utils.redaction import redact
 
 load_dotenv(override=True)
 
@@ -842,7 +843,9 @@ async def index(session, new: str = "", thread: str = ""):
 
 @rt("/send")
 async def send(session, q: str = ""):
-    q = (q or "").strip()
+    # Redacted before runs.create: its input is recorded as the trace's root
+    # inputs, which the agent's redaction middleware cannot rewrite.
+    q = redact((q or "").strip())
     if "thread" not in session:
         session["thread"] = str(uuid.uuid4())
     if not q:
