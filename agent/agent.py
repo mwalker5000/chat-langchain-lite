@@ -1,6 +1,7 @@
 import os
 
 from langchain.agents import create_agent
+from langchain.agents.middleware import PIIMiddleware
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableConfig
@@ -41,6 +42,21 @@ def _readonly_context_hub_fs() -> FilesystemMiddleware:
     return fs
 
 
+# Users paste credentials into debugging questions; the gateway guard does not
+# redact them, so strip them here before they ever reach the model.
+_SECRET_PATTERNS = {
+    "langsmith_api_key": r"\blsv2_[A-Za-z0-9_]+",
+    "api_key": r"\bsk-[A-Za-z0-9_-]{20,}",
+}
+
+
+def _secret_redaction() -> list[PIIMiddleware]:
+    return [
+        PIIMiddleware(pii_type, detector=pattern, strategy="redact", apply_to_input=True)
+        for pii_type, pattern in _SECRET_PATTERNS.items()
+    ]
+
+
 def build_agent():
     return create_agent(
         # temperature=0 for deterministic, reproducible demo behavior — the
@@ -49,7 +65,7 @@ def build_agent():
         model=model,
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
-        middleware=[_readonly_context_hub_fs()],
+        middleware=[*_secret_redaction(), _readonly_context_hub_fs()],
     )
 
 
