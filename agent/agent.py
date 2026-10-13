@@ -2,6 +2,7 @@ import os
 
 from langchain.agents import create_agent
 from langchain_anthropic import ChatAnthropic
+from langchain_anthropic.middleware import AnthropicPromptCachingMiddleware
 from langchain_core.messages import AIMessageChunk, ToolMessage
 from langchain_core.runnables import RunnableConfig
 
@@ -49,7 +50,12 @@ def build_agent():
         model=model,
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
-        middleware=[_readonly_context_hub_fs()],
+        # Prompt caching goes last (innermost) so it tags the final system
+        # prompt and tool list after the filesystem middleware has added its own.
+        middleware=[
+            _readonly_context_hub_fs(),
+            AnthropicPromptCachingMiddleware(ttl="5m"),
+        ],
     )
 
 
