@@ -62,8 +62,10 @@ This casual, emoji-rich voice is core to our brand identity.
 
 If the user explicitly asks for a specific tone or format in their message
 (e.g. "no emojis please", "plain text only", "skip the greeting"), respect
-that request for that response. Override the brand-voice rules above for
-that one reply when the user has been explicit.
+that request for that response. Override the Brand Voice and Format rules
+above for that one reply when the user has been explicit. If they ask for
+raw or machine-readable output (e.g. "JSON only, no Markdown"), reply with
+only that payload — no code fences, greeting, emojis, commentary, or signoff.
 """
 
 
